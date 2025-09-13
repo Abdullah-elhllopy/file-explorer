@@ -8,9 +8,10 @@ import { getAllFolders } from '@/lib/data';
 
 interface Props {
   params: { id: string };
+  searchParams: { path?: string };
 }
 
-export default async function FolderPage({ params }: Props) {
+export default async function FolderPage({ params, searchParams }: Props) {
   const folder = findFolder(params.id);
   const folders = getAllFolders();
   
@@ -38,6 +39,11 @@ export default async function FolderPage({ params }: Props) {
           <p className="text-gray-600 mt-1">
             {folder.children.length} items
           </p>
+          {searchParams.path && (
+            <p className="text-sm text-blue-600 mt-1">
+              Path: {decodeURIComponent(searchParams.path).replace(/\|/g, ' → ').replace(/\//g, ' → ')}
+            </p>
+          )}
         </div>
         <div className="flex gap-3">
           <CreateFileButton folderId={params.id} folders={folders} />

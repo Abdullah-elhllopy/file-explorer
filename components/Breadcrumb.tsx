@@ -1,8 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { getBreadcrumbPath, findParentFolder, findFolder } from '@/lib/data';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { parseBreadcrumbPath } from '@/lib/data';
 
 interface BreadcrumbProps {
     folderId: string;
@@ -10,40 +10,33 @@ interface BreadcrumbProps {
 
 export function Breadcrumb({ folderId }: BreadcrumbProps) {
     const router = useRouter();
+    const searchParams = useSearchParams();
+    const pathQuery = searchParams.get('path');
     
-    // Get the complete path from root to current folder
-    const buildPath = (currentFolderId: string): Array<{id: string, name: string}> => {
-        const path: Array<{id: string, name: string}> = [];
-        let current = findFolder(currentFolderId);
-        
-        // Build path from current folder up to root
-        while (current) {
-            path.unshift({ id: current.id, name: current.name });
-            
-            if (current.id === 'root') break;
-            
-            // Find parent folder
-            const parent = findParentFolder(current.id);
-            current = parent;
-        }
-        
-        return path;
-    };
-
-    const path = buildPath(folderId);
+    // Parse the breadcrumb path from query parameters
+    const path = parseBreadcrumbPath(pathQuery);
 
     const handleGoBack = () => {
-        if (folderId === 'root') {
-            return; // Already at root
+        if (folderId === 'root' || path.length <= 1) {
+            router.push('/');
+            return;
         }
         
-        // Find parent folder and navigate to it
-        const parentFolder = findParentFolder(folderId);
+        // Navigate to the parent folder (second to last item in path)
+        const parentFolder = path[path.length - 2];
         if (parentFolder) {
-            const parentRoute = parentFolder.id === 'root' ? '/' : `/folder/${parentFolder.id}`;
-            router.push(parentRoute);
+            if (parentFolder.id === 'root') {
+                router.push('/');
+            } else {
+                // Build new path without the current folder
+                const newPath = path.slice(0, -2); // Remove current and parent
+                const pathWithoutRoot = newPath.filter(item => item.id !== 'root');
+                const queryString = pathWithoutRoot.length > 0 
+                    ? `?path=${encodeURIComponent(pathWithoutRoot.map(item => `${item.id}|${item.name}`).join('/'))}`
+                    : '';
+                router.push(`/folder/${parentFolder.id}${queryString}`);
+            }
         } else {
-            // Fallback to root if parent not found
             router.push('/');
         }
     };
@@ -51,7 +44,7 @@ export function Breadcrumb({ folderId }: BreadcrumbProps) {
     return (
         <div className="flex items-center gap-4 bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
             {/* Back Button */}
-            {folderId !== 'root' && (
+            {folderId !== 'root' && path.length > 1 && (
                 <button
                     onClick={handleGoBack}
                     className="flex items-center gap-2 px-3 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-all duration-200"
@@ -77,7 +70,7 @@ export function Breadcrumb({ folderId }: BreadcrumbProps) {
             {/* Breadcrumb Path */}
             <nav className="flex items-center gap-2 flex-1">
                 {path.map((item, index) => (
-                    <div key={item.id} className="flex items-center gap-2">
+                    <div key={`${item.id}-${index}`} className="flex items-center gap-2">
                         {index > 0 && (
                             <svg 
                                 className="w-3 h-3 text-gray-400" 
@@ -100,7 +93,15 @@ export function Breadcrumb({ folderId }: BreadcrumbProps) {
                             </span>
                         ) : (
                             <Link
-                                href={item.id === 'root' ? '/' : `/folder/${item.id}`}
+                                href={item.id === 'root' ? '/' : (() => {
+                                    // Build path query for this breadcrumb link
+                                    const pathUpToThisItem = path.slice(0, index + 1);
+                                    const pathWithoutRoot = pathUpToThisItem.filter(p => p.id !== 'root').slice(0, -1); // Exclude current item
+                                    const queryString = pathWithoutRoot.length > 0 
+                                        ? `?path=${encodeURIComponent(pathWithoutRoot.map(p => `${p.id}|${p.name}`).join('/'))}`
+                                        : '';
+                                    return `/folder/${item.id}${queryString}`;
+                                })()}
                                 className="flex items-center gap-2 text-blue-600 hover:text-blue-800 hover:underline transition-colors duration-200 font-medium"
                             >
                                 <span className="text-sm">

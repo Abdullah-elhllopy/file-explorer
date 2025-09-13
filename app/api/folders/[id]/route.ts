@@ -33,13 +33,15 @@ export async function POST(
     return NextResponse.json({ error: 'A folder with this name already exists' }, { status: 409 });
   }
 
-  // Create new folder with proper parent reference
+  // Create new folder with proper parent reference and subfolder flag
   const newFolder = {
     id: Date.now().toString(),
     name: name.trim(),
     type: 'folder' as const,
     children: [],
-    parentId: params.id
+    parentId: params.id,
+    isSubFolder: params.id !== 'root', // Mark as subfolder if parent is not root
+    createdAt: new Date().toISOString()
   };
 
   parent.children.push(newFolder);

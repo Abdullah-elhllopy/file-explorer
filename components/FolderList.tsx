@@ -1,10 +1,9 @@
 'use client';
 
-import Link from 'next/link';
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import type { FolderNode, FileNode } from '@/lib/data';
-import { getFileIcon, getFileExtension, getFileType, formatFileSize, formatDate } from '@/lib/data';
+import { getFileIcon, getFileExtension, getFileType, formatFileSize, formatDate, findFile, parseBreadcrumbPath, buildBreadcrumbQuery } from '@/lib/data';
 
 interface FileViewerProps {
   file: FileNode;
@@ -21,6 +20,12 @@ function FileViewer({ file, onClose }: FileViewerProps) {
   const [textContent, setTextContent] = useState<string>('');
   const [loadingText, setLoadingText] = useState(false);
   const extension = getFileExtension(file.name);
+  
+  // Update lastAccessed when file is viewed
+  React.useEffect(() => {
+    findFile(file.id); // This updates the lastAccessed timestamp
+  }, [file.id]);
+  
   console.log('file' ,file)
   // Use fileSystemName if available, otherwise fall back to display name
   const fileName = (file as any).fileSystemName || file.name;
@@ -239,6 +244,25 @@ export function FolderList({ nodes }: { nodes: Array<FolderNode | FileNode> }) {
   const [deleteConfirm, setDeleteConfirm] = useState<DeleteConfirmState | null>(null);
   const [deleting, setDeleting] = useState(false);
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  const handleFileClick = (file: FileNode) => {
+    // Update lastAccessed timestamp when file is clicked
+    findFile(file.id);
+    setSelectedFile(file);
+  };
+
+  const handleFolderClick = (folder: FolderNode) => {
+    const pathQuery = searchParams.get('path');
+    const currentPath = parseBreadcrumbPath(pathQuery);
+    const newQuery = buildBreadcrumbQuery(currentPath, { id: folder.id, name: folder.name });
+    
+    if (newQuery) {
+      router.push(`/folder/${folder.id}?path=${newQuery}`);
+    } else {
+      router.push(`/folder/${folder.id}`);
+    }
+  };
 
   const handleDelete = async (type: 'file' | 'folder', id: string) => {
     setDeleting(true);
@@ -287,9 +311,9 @@ export function FolderList({ nodes }: { nodes: Array<FolderNode | FileNode> }) {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
               {folders.map((folder) => (
                 <div key={folder.id} className="group relative">
-                  <Link 
-                    href={`/folder/${folder.id}`} 
-                    className="block p-4 border border-gray-200 rounded-lg hover:border-blue-300 hover:shadow-md transition-all duration-200 bg-white"
+                  <div 
+                    onClick={() => handleFolderClick(folder)}
+                    className="block p-4 border border-gray-200 rounded-lg hover:border-blue-300 hover:shadow-md transition-all duration-200 bg-white cursor-pointer"
                   >
                     <div className="text-5xl mb-4 text-blue-500">📁</div>
                     <div className="min-w-0">
@@ -303,7 +327,7 @@ export function FolderList({ nodes }: { nodes: Array<FolderNode | FileNode> }) {
                         </p>
                       )}
                     </div>
-                  </Link>
+                  </div>
                   <button
                     onClick={(e) => {
                       e.preventDefault();
@@ -334,7 +358,7 @@ export function FolderList({ nodes }: { nodes: Array<FolderNode | FileNode> }) {
                   <div key={file.id} className="group relative">
                     <div
                       className="p-4 border border-gray-200 rounded-lg hover:border-blue-300 hover:shadow-md transition-all duration-200 cursor-pointer bg-white"
-                      onClick={() => setSelectedFile(file)}
+                      onClick={() => handleFileClick(file)}
                     >
                       <div className="text-5xl mb-4">{getFileIcon(file.name)}</div>
                       <div className="min-w-0">

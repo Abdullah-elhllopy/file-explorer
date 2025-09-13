@@ -1,13 +1,18 @@
 'use client';
 
-import { useState } from 'react';
-import { getRecentFiles, getFileIcon, getFileExtension, getFileType, formatFileSize, formatDate } from '@/lib/data';
+import React, { useState } from 'react';
+import { getRecentFiles, getFileIcon, getFileExtension, getFileType, formatFileSize, formatDate, findFile } from '@/lib/data';
 import type { FileNode } from '@/lib/data';
 
 function FileViewer({ file, onClose }: { file: FileNode; onClose: () => void }) {
   const [textContent, setTextContent] = useState<string>('');
   const [loadingText, setLoadingText] = useState(false);
   const extension = getFileExtension(file.name);
+  
+  // Update lastAccessed when file is viewed
+  React.useEffect(() => {
+    findFile(file.id); // This updates the lastAccessed timestamp
+  }, [file.id]);
   
   // Use fileSystemName if available, otherwise fall back to display name
   const fileName = (file as any).fileSystemName || file.name;
@@ -182,6 +187,12 @@ export default function RecentPage() {
     ? recentFiles 
     : recentFiles.filter(file => getFileType(file.name) === filter);
 
+  const handleFileClick = (file: FileNode) => {
+    // Update lastAccessed timestamp when file is clicked
+    findFile(file.id);
+    setSelectedFile(file);
+  };
+
   return (
     <>
       <div className="max-w-7xl mx-auto">
@@ -263,7 +274,7 @@ export default function RecentPage() {
                     key={file.id}
                     className={`file-item cursor-pointer card-hover`}
                     data-type={fileType}
-                    onClick={() => setSelectedFile(file)}
+                    onClick={() => handleFileClick(file)}
                   >
                     <div className="text-4xl mb-3">{getFileIcon(file.name)}</div>
                     <div className="flex-1 min-w-0">
@@ -277,6 +288,11 @@ export default function RecentPage() {
                       {(file as any).uploadedAt && (
                         <p className="text-xs text-gray-400">
                           {formatDate((file as any).uploadedAt)}
+                        </p>
+                      )}
+                      {(file as any).lastAccessed && (
+                        <p className="text-xs text-blue-400">
+                          Accessed {formatDate((file as any).lastAccessed)}
                         </p>
                       )}
                     </div>

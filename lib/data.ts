@@ -5,6 +5,8 @@ export interface FileNode {
   fileSystemName?: string; // For tracking actual file on disk
   size?: number;
   uploadedAt?: string;
+  lastAccessed?: string; // Track when file was last accessed for recent files
+  parentId?: string; // Track parent folder for proper file organization
 }
 
 export interface FolderNode {
@@ -14,6 +16,7 @@ export interface FolderNode {
   children: Array<FolderNode | FileNode>;
   parentId?: string;
   createdAt?: string;
+  isSubFolder?: boolean; // Flag to identify subfolders
 }
 
 // In-memory data store
@@ -84,28 +87,78 @@ export function findParentFolder(childId: string): FolderNode | null {
   return search(fileSystem);
 }
 
-// Helper function to get breadcrumb path
-export function getBreadcrumbPath(folderId: string): Array<{id: string, name: string}> {
-  const path: Array<{id: string, name: string}> = [];
-  let currentFolder = findFolder(folderId);
-  
-  while (currentFolder) {
-    path.unshift({ id: currentFolder.id, name: currentFolder.name });
-    if (currentFolder.id === 'root') break;
-    currentFolder = findParentFolder(currentFolder.id);
+// Helper function to find a file by ID and update its lastAccessed time
+export function findFile(fileId: string): FileNode | null {
+  function search(node: FolderNode): FileNode | null {
+    for (const child of node.children) {
+      if (child.type === 'file' && child.id === fileId) {
+        // Update lastAccessed when file is found/accessed
+        (child as any).lastAccessed = new Date().toISOString();
+        return child;
+      }
+      if (child.type === 'folder') {
+        const result = search(child);
+        if (result) return result;
+      }
+    }
+    return null;
   }
-  
-  return path;
+  return search(fileSystem);
 }
 
-// Helper function to get recent files (last 10 files, sorted by upload date)
+// Parse breadcrumb path from query string
+export function parseBreadcrumbPath(pathQuery: string | null): Array<{id: string, name: string}> {
+  if (!pathQuery) {
+    return [{ id: 'root', name: 'My Files' }];
+  }
+  
+  try {
+    const decoded = decodeURIComponent(pathQuery);
+    const parts = decoded.split('/').filter(Boolean);
+    const path: Array<{id: string, name: string}> = [{ id: 'root', name: 'My Files' }];
+    
+    for (const part of parts) {
+      const [id, name] = part.split('|');
+      if (id && name) {
+        path.push({ id, name });
+      }
+    }
+    
+    return path;
+  } catch (error) {
+    return [{ id: 'root', name: 'My Files' }];
+  }
+}
+
+// Build breadcrumb query string
+export function buildBreadcrumbQuery(currentPath: Array<{id: string, name: string}>, newFolder: {id: string, name: string}): string {
+  const newPath = [...currentPath];
+  
+  // Don't add root again if it's already there
+  if (newFolder.id !== 'root') {
+    newPath.push(newFolder);
+  }
+  
+  // Remove root from the path for the query (it's implicit)
+  const pathWithoutRoot = newPath.filter(item => item.id !== 'root');
+  
+  if (pathWithoutRoot.length === 0) {
+    return '';
+  }
+  
+  const pathString = pathWithoutRoot.map(item => `${item.id}|${item.name}`).join('/');
+  return encodeURIComponent(pathString);
+}
+
+// Helper function to get recent files - FIXED VERSION
 export function getRecentFiles(): FileNode[] {
   const files: FileNode[] = [];
+  
   function collectFiles(node: FolderNode) {
     for (const child of node.children) {
       if (child.type === 'file') {
         files.push(child);
-      } else {
+      } else if (child.type === 'folder') {
         collectFiles(child);
       }
     }
@@ -113,14 +166,15 @@ export function getRecentFiles(): FileNode[] {
   
   collectFiles(fileSystem);
   
-  // Sort by upload date (newest first) and return last 10
+  // Sort by lastAccessed date (newest first), then by upload date, and return last 20
   return files
+    .filter(file => file.uploadedAt) // Only include files that have been uploaded
     .sort((a, b) => {
-      const dateA = new Date(a.uploadedAt || 0).getTime();
-      const dateB = new Date(b.uploadedAt || 0).getTime();
-      return dateB - dateA;
+      const lastAccessedA = (a as any).lastAccessed || a.uploadedAt || '0';
+      const lastAccessedB = (b as any).lastAccessed || b.uploadedAt || '0';
+      return new Date(lastAccessedB).getTime() - new Date(lastAccessedA).getTime();
     })
-    .slice(0, 10);
+    .slice(0, 20); // Increased to 20 for better testing
 }
 
 // Helper function to get file extension
@@ -283,8 +337,8 @@ export function getFileSystemStats() {
   traverse(fileSystem);
   
   return {
-    totalFiles: totalFiles - 1, // Exclude root folder
-    totalFolders,
+    totalFiles,
+    totalFolders: totalFolders - 1, // Exclude root folder
     totalSize: formatFileSize(totalSize)
   };
 }
