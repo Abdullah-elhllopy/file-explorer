@@ -1,3 +1,8 @@
 {
-  "/folder/[id]/page": "app/folder/[id]/page.js"
+  "/_not-found/page": "app/_not-found/page.js",
+  "/folder/[id]/page": "app/folder/[id]/page.js",
+  "/page": "app/page.js",
+  "/recent/page": "app/recent/page.js",
+  "/api/files/[id]/route": "app/api/files/[id]/route.js",
+  "/api/delete/[type]/[id]/route": "app/api/delete/[type]/[id]/route.js"
 }

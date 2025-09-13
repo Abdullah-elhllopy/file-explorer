@@ -43,23 +43,33 @@ export async function POST(
     return NextResponse.json({ error: 'Invalid file name' }, { status: 400 });
   }
 
-  // Check if file with same name already exists
+  // Check if file with same name already exists in this folder
   const existingFile = parent.children.find(
     child => child.name.toLowerCase() === safeName.toLowerCase() && child.type === 'file'
   );
   
   if (existingFile) {
-    return NextResponse.json({ error: 'A file with this name already exists' }, { status: 409 });
+    // Generate unique name with timestamp
+    const nameWithoutExt = safeName.substring(0, safeName.lastIndexOf('.')) || safeName;
+    const extension = extname(safeName);
+    const timestamp = Date.now();
+    const uniqueName = `${nameWithoutExt}_${timestamp}${extension}`;
+    finalName = uniqueName;
   }
 
   const publicDir = join(process.cwd(), 'public');
-  const filePath = join(publicDir, safeName +  Date.now().toString());
+  
+  // Create a unique filename for the filesystem to avoid conflicts
+  const fileId = Date.now().toString();
+  const fileExtension = extname(finalName);
+  const fileSystemName = `${fileId}${fileExtension}`;
+  const filePath = join(publicDir, fileSystemName);
 
   try {
     // Ensure public directory exists
     await mkdir(publicDir, { recursive: true });
     
-    // Write file (fail if it already exists in filesystem)
+    // Write file to filesystem with unique name
     const bytes = await file.arrayBuffer();
     await writeFile(filePath, Buffer.from(bytes), { flag: 'wx' });
   } catch (err: any) {
@@ -70,14 +80,19 @@ export async function POST(
     return NextResponse.json({ error: 'Failed to create file' }, { status: 500 });
   }
 
-  // Add to in-memory structure
+  // Add to in-memory structure with display name but track filesystem name
   const newFile = {
-    id: Date.now().toString(),
-    name: safeName,
+    id: fileId,
+    name: finalName, // Display name
     type: 'file' as const,
+    fileSystemName: fileSystemName, // Internal filesystem name
+    size: file.size,
+    uploadedAt: new Date().toISOString(),
   };
-
+  // console.log('paernt', parent )
   parent.children.push(newFile);
+    // const parent_data = findFolder(params.id);
+  // console.log('parent_data', parent_data )
   
   // Revalidate paths
   revalidatePath('/');

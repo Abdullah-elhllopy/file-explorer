@@ -47,7 +47,9 @@ async function deleteFile(fileId: string) {
     try {
         // Delete the physical file from public directory
         const publicDir = join(process.cwd(), 'public');
-        const filePath = join(publicDir, file.name);
+        // Use fileSystemName if available, otherwise fall back to name
+        const fileName = (file as any).fileSystemName || file.name;
+        const filePath = join(publicDir, fileName);
         await unlink(filePath);
         console.log('Physical file deleted:', filePath);
     } catch (error) {
