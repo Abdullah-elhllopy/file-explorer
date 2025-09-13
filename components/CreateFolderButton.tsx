@@ -59,7 +59,7 @@ export function CreateFolderButton({ folderId = 'root' }: CreateFolderButtonProp
       {open && (
         <div className="modal-overlay" onClick={handleClose}>
           <form onSubmit={handleSubmit} onClick={(e) => e.stopPropagation()}>
-            <div className="modal-content">
+            <div className="modal-content max-w-md">
               <h3 className="text-lg font-semibold mb-4">Create New Folder</h3>
               
               <div className="mb-6">
@@ -75,6 +75,8 @@ export function CreateFolderButton({ folderId = 'root' }: CreateFolderButtonProp
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   disabled={loading}
+                  style={{ width: '300px'  }}
+                  required
                 />
               </div>
               
@@ -89,8 +91,9 @@ export function CreateFolderButton({ folderId = 'root' }: CreateFolderButtonProp
                 </button>
                 <button
                   type="submit"
-                  className="btn-primary"
+                  className="btn-primary disabled:opacity-50"
                   disabled={loading || !name.trim()}
+
                 >
                   {loading ? 'Creating...' : 'Create Folder'}
                 </button>

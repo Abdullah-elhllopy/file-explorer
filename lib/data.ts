@@ -20,7 +20,7 @@ export interface FolderNode {
 }
 
 // In-memory data store
-let fileSystem: FolderNode = {
+const fileSystem: FolderNode = {
   id: 'root',
   name: 'My Files',
   type: 'folder',
@@ -32,7 +32,10 @@ let fileSystem: FolderNode = {
       type: 'folder',
       parentId: 'root',
       createdAt: new Date().toISOString(),
-      children: []
+      children: [
+        // { id: '3', name: 'Resume.pdf', type: 'file' },
+        // { id: '4', name: 'Cover Letter.docx', type: 'file' }
+      ]
     },
     {
       id: '2',
@@ -107,23 +110,23 @@ export function findFile(fileId: string): FileNode | null {
 }
 
 // Parse breadcrumb path from query string
-export function parseBreadcrumbPath(pathQuery: string | null): Array<{id: string, name: string}> {
+export function parseBreadcrumbPath(pathQuery: string | null): Array<{ id: string, name: string }> {
   if (!pathQuery) {
     return [{ id: 'root', name: 'My Files' }];
   }
-  
+
   try {
     const decoded = decodeURIComponent(pathQuery);
     const parts = decoded.split('/').filter(Boolean);
-    const path: Array<{id: string, name: string}> = [{ id: 'root', name: 'My Files' }];
-    
+    const path: Array<{ id: string, name: string }> = [{ id: 'root', name: 'My Files' }];
+
     for (const part of parts) {
       const [id, name] = part.split('|');
       if (id && name) {
         path.push({ id, name });
       }
     }
-    
+
     return path;
   } catch (error) {
     return [{ id: 'root', name: 'My Files' }];
@@ -131,21 +134,21 @@ export function parseBreadcrumbPath(pathQuery: string | null): Array<{id: string
 }
 
 // Build breadcrumb query string
-export function buildBreadcrumbQuery(currentPath: Array<{id: string, name: string}>, newFolder: {id: string, name: string}): string {
+export function buildBreadcrumbQuery(currentPath: Array<{ id: string, name: string }>, newFolder: { id: string, name: string }): string {
   const newPath = [...currentPath];
-  
+
   // Don't add root again if it's already there
   if (newFolder.id !== 'root') {
     newPath.push(newFolder);
   }
-  
+
   // Remove root from the path for the query (it's implicit)
   const pathWithoutRoot = newPath.filter(item => item.id !== 'root');
-  
+
   if (pathWithoutRoot.length === 0) {
     return '';
   }
-  
+
   const pathString = pathWithoutRoot.map(item => `${item.id}|${item.name}`).join('/');
   return encodeURIComponent(pathString);
 }
@@ -153,7 +156,7 @@ export function buildBreadcrumbQuery(currentPath: Array<{id: string, name: strin
 // Helper function to get recent files - FIXED VERSION
 export function getRecentFiles(): FileNode[] {
   const files: FileNode[] = [];
-  
+
   function collectFiles(node: FolderNode) {
     for (const child of node.children) {
       if (child.type === 'file') {
@@ -163,9 +166,9 @@ export function getRecentFiles(): FileNode[] {
       }
     }
   }
-  
+  // console.log('fileSystem', fileSystem)
   collectFiles(fileSystem);
-  
+
   // Sort by lastAccessed date (newest first), then by upload date, and return last 20
   return files
     .filter(file => file.uploadedAt) // Only include files that have been uploaded
@@ -185,26 +188,26 @@ export function getFileExtension(filename: string): string {
 // Helper function to get file type category
 export function getFileType(filename: string): string {
   const ext = getFileExtension(filename);
-  
+
   const typeMap: Record<string, string> = {
     // Images
-    'jpg': 'image', 'jpeg': 'image', 'png': 'image', 'gif': 'image', 
+    'jpg': 'image', 'jpeg': 'image', 'png': 'image', 'gif': 'image',
     'svg': 'image', 'webp': 'image', 'bmp': 'image', 'ico': 'image',
-    
+
     // Videos
-    'mp4': 'video', 'avi': 'video', 'mov': 'video', 'wmv': 'video', 
+    'mp4': 'video', 'avi': 'video', 'mov': 'video', 'wmv': 'video',
     'flv': 'video', 'webm': 'video', 'mkv': 'video', '3gp': 'video',
-    
+
     // Audio
     'mp3': 'audio', 'wav': 'audio', 'flac': 'audio', 'aac': 'audio',
     'ogg': 'audio', 'm4a': 'audio', 'wma': 'audio',
-    
+
     // Documents
-    'pdf': 'document', 'doc': 'document', 'docx': 'document', 
+    'pdf': 'document', 'doc': 'document', 'docx': 'document',
     'txt': 'document', 'rtf': 'document', 'odt': 'document',
     'xls': 'document', 'xlsx': 'document', 'csv': 'document',
     'ppt': 'document', 'pptx': 'document', 'odp': 'document',
-    
+
     // Code
     'js': 'code', 'ts': 'code', 'jsx': 'code', 'tsx': 'code',
     'html': 'code', 'css': 'code', 'scss': 'code', 'sass': 'code',
@@ -212,34 +215,34 @@ export function getFileType(filename: string): string {
     'py': 'code', 'java': 'code', 'cpp': 'code', 'c': 'code',
     'php': 'code', 'rb': 'code', 'go': 'code', 'rust': 'code',
     'sql': 'code', 'sh': 'code', 'bat': 'code',
-    
+
     // Archives
-    'zip': 'archive', 'rar': 'archive', '7z': 'archive', 
+    'zip': 'archive', 'rar': 'archive', '7z': 'archive',
     'tar': 'archive', 'gz': 'archive', 'bz2': 'archive'
   };
-  
+
   return typeMap[ext] || 'file';
 }
 
 // Helper function to get all folders for dropdown selection
-export function getAllFolders(): Array<{id: string, name: string, path: string}> {
-  const folders: Array<{id: string, name: string, path: string}> = [];
-  
+export function getAllFolders(): Array<{ id: string, name: string, path: string }> {
+  const folders: Array<{ id: string, name: string, path: string }> = [];
+
   function collectFolders(node: FolderNode, path: string = '') {
     const currentPath = path ? `${path} / ${node.name}` : node.name;
-    folders.push({ 
-      id: node.id, 
-      name: node.name, 
-      path: currentPath 
+    folders.push({
+      id: node.id,
+      name: node.name,
+      path: currentPath
     });
-    
+
     for (const child of node.children) {
       if (child.type === 'folder') {
         collectFolders(child, currentPath);
       }
     }
   }
-  
+
   collectFolders(fileSystem);
   return folders;
 }
@@ -247,29 +250,29 @@ export function getAllFolders(): Array<{id: string, name: string, path: string}>
 // Enhanced file icon function
 export function getFileIcon(filename: string): string {
   const ext = getFileExtension(filename);
-  
+
   const iconMap: Record<string, string> = {
     // Images
     'jpg': '🖼️', 'jpeg': '🖼️', 'png': '🖼️', 'gif': '🖼️',
     'svg': '🖼️', 'webp': '🖼️', 'bmp': '🖼️', 'ico': '🖼️',
-    
+
     // Videos
     'mp4': '🎬', 'avi': '🎬', 'mov': '🎬', 'wmv': '🎬',
     'flv': '🎬', 'webm': '🎬', 'mkv': '🎬', '3gp': '🎬',
-    
+
     // Audio
     'mp3': '🎵', 'wav': '🎵', 'flac': '🎵', 'aac': '🎵',
     'ogg': '🎵', 'm4a': '🎵', 'wma': '🎵',
-    
+
     // Documents
     'pdf': '📄', 'doc': '📝', 'docx': '📝', 'txt': '📄', 'rtf': '📝',
-    
+
     // Spreadsheets
     'xls': '📊', 'xlsx': '📊', 'csv': '📊',
-    
+
     // Presentations
     'ppt': '📊', 'pptx': '📊', 'odp': '📊',
-    
+
     // Code
     'js': '⚡', 'ts': '⚡', 'jsx': '⚡', 'tsx': '⚡',
     'html': '🌐', 'css': '🎨', 'scss': '🎨', 'sass': '🎨',
@@ -277,22 +280,22 @@ export function getFileIcon(filename: string): string {
     'py': '🐍', 'java': '☕', 'cpp': '⚙️', 'c': '⚙️',
     'php': '🐘', 'rb': '💎', 'go': '🐹', 'rust': '🦀',
     'sql': '🗃️', 'sh': '📜', 'bat': '📜',
-    
+
     // Archives
     'zip': '📦', 'rar': '📦', '7z': '📦', 'tar': '📦', 'gz': '📦'
   };
-  
+
   return iconMap[ext] || '📄';
 }
 
 // Helper function to format file size
 export function formatFileSize(bytes: number): string {
   if (bytes === 0) return '0 Bytes';
-  
+
   const k = 1024;
   const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
-  
+
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 }
 
@@ -301,16 +304,16 @@ export function formatDate(dateString: string): string {
   const date = new Date(dateString);
   const now = new Date();
   const diff = now.getTime() - date.getTime();
-  
+
   const minutes = Math.floor(diff / 60000);
   const hours = Math.floor(diff / 3600000);
   const days = Math.floor(diff / 86400000);
-  
+
   if (minutes < 1) return 'Just now';
   if (minutes < 60) return `${minutes} minutes ago`;
   if (hours < 24) return `${hours} hours ago`;
   if (days < 7) return `${days} days ago`;
-  
+
   return date.toLocaleDateString();
 }
 
@@ -319,7 +322,7 @@ export function getFileSystemStats() {
   let totalFiles = 0;
   let totalFolders = 0;
   let totalSize = 0;
-  
+
   function traverse(node: FolderNode) {
     if (node.type === 'folder') {
       totalFolders++;
@@ -333,9 +336,9 @@ export function getFileSystemStats() {
       }
     }
   }
-  
+
   traverse(fileSystem);
-  
+
   return {
     totalFiles,
     totalFolders: totalFolders - 1, // Exclude root folder

@@ -67,10 +67,10 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
       <body className="h-full bg-gray-50">
-        <div className="h-full flex">
+        <div style={{height : '100vh'}} className="h-full  flex">
           {/* Desktop Sidebar */}
-          <aside className="hidden lg:flex lg:w-64 lg:flex-col">
-            <div className="flex-1 bg-white border-r border-gray-200 px-6 py-8 shadow-sm">
+          <aside className="hidden   lg:flex lg:w-64 lg:flex-col">
+            <div className="flex-1 h-full bg-white border-r border-gray-200 px-6 py-8 shadow-sm">
               <SidebarContent />
             </div>
           </aside>

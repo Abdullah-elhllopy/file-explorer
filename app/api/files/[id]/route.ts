@@ -89,11 +89,8 @@ export async function POST(
     size: file.size,
     uploadedAt: new Date().toISOString(),
   };
-  // console.log('paernt', parent )
-  parent.children.push(newFile);
-    // const parent_data = findFolder(params.id);
-  // console.log('parent_data', parent_data )
-  
+
+  parent.children.push(newFile);  
   // Revalidate paths
   revalidatePath('/');
   revalidatePath(`/folder/${params.id}`);

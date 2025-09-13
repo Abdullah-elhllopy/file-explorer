@@ -1,242 +1,21 @@
 'use client';
+import dynamic from 'next/dynamic';
 
 import React, { useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import type { FolderNode, FileNode } from '@/lib/data';
 import { getFileIcon, getFileExtension, getFileType, formatFileSize, formatDate, findFile, parseBreadcrumbPath, buildBreadcrumbQuery } from '@/lib/data';
 
-interface FileViewerProps {
-  file: FileNode;
-  onClose: () => void;
-}
+
+const RecentFileViewer = dynamic(() => import('./RecentFilePreview'), {
+  ssr: false, 
+  loading: () => <div>Loading Account...</div>
+})
 
 interface DeleteConfirmState {
   type: 'file' | 'folder';
   id: string;
   name: string;
-}
-
-function FileViewer({ file, onClose }: FileViewerProps) {
-  const [textContent, setTextContent] = useState<string>('');
-  const [loadingText, setLoadingText] = useState(false);
-  const extension = getFileExtension(file.name);
-  
-  // Update lastAccessed when file is viewed
-  React.useEffect(() => {
-    findFile(file.id); // This updates the lastAccessed timestamp
-  }, [file.id]);
-  
-  console.log('file' ,file)
-  // Use fileSystemName if available, otherwise fall back to display name
-  const fileName = (file as any).fileSystemName || file.name;
-  const publicPath = `/${fileName}`;
-
-  const renderFileContent = () => {
-    const imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'svg', 'webp', 'bmp'];
-    const videoExtensions = ['mp4', 'avi', 'mov', 'wmv', 'webm', 'mkv'];
-    const audioExtensions = ['mp3', 'wav', 'flac', 'aac', 'ogg'];
-    const textExtensions = ['txt', 'md', 'markdown', 'json', 'xml', 'html', 'css', 'js', 'ts', 'jsx', 'tsx', 'py', 'java', 'cpp', 'c', 'php', 'rb', 'go', 'rust', 'yml', 'yaml', 'csv'];
-
-    if (imageExtensions.includes(extension)) {
-      return (
-        <div className="text-center">
-          <img 
-            src={publicPath} 
-            alt={file.name}
-            className="max-w-full max-h-96 object-contain rounded-lg shadow-sm mx-auto"
-            onError={(e) => {
-              e.currentTarget.style.display = 'none';
-              const errorDiv = e.currentTarget.nextElementSibling as HTMLElement;
-              errorDiv?.classList.remove('hidden');
-            }}
-          />
-          <div className="hidden text-gray-500 py-8">
-            <div className="text-6xl mb-4">{getFileIcon(file.name)}</div>
-            <p>Image could not be loaded</p>
-          </div>
-        </div>
-      );
-    }
-
-    if (videoExtensions.includes(extension)) {
-      return (
-        <div className="text-center">
-          <video 
-            controls 
-            className="max-w-full max-h-96 rounded-lg shadow-sm mx-auto"
-            onError={(e) => {
-              e.currentTarget.style.display = 'none';
-              const errorDiv = e.currentTarget.nextElementSibling as HTMLElement;
-              errorDiv?.classList.remove('hidden');
-            }}
-          >
-            <source src={publicPath} type={`video/${extension}`} />
-            Your browser does not support the video tag.
-          </video>
-          <div className="hidden text-gray-500 py-8">
-            <div className="text-6xl mb-4">{getFileIcon(file.name)}</div>
-            <p>Video could not be loaded</p>
-          </div>
-        </div>
-      );
-    }
-
-    if (audioExtensions.includes(extension)) {
-      return (
-        <div className="text-center">
-          <div className="bg-gray-50 p-8 rounded-lg">
-            <div className="text-6xl mb-4">{getFileIcon(file.name)}</div>
-            <h3 className="font-medium text-gray-900 mb-4">{file.name}</h3>
-            <audio 
-              controls 
-              className="w-full max-w-md mx-auto"
-              onError={(e) => {
-                const errorDiv = e.currentTarget.nextElementSibling as HTMLElement;
-                errorDiv?.classList.remove('hidden');
-              }}
-            >
-              <source src={publicPath} type={`audio/${extension}`} />
-              Your browser does not support the audio tag.
-            </audio>
-            <div className="hidden text-red-500 mt-2">
-              <p>Audio could not be loaded</p>
-            </div>
-          </div>
-        </div>
-      );
-    }
-
-    if (extension === 'pdf') {
-      return (
-        <div className="w-full">
-          <iframe
-            src={publicPath}
-            className="w-full h-96 rounded-lg border shadow-sm"
-            title={file.name}
-            onError={(e) => {
-              e.currentTarget.style.display = 'none';
-              const errorDiv = e.currentTarget.nextElementSibling as HTMLElement;
-              errorDiv?.classList.remove('hidden');
-            }}
-          />
-          <div className="hidden text-center py-8 text-gray-500">
-            <div className="text-6xl mb-4">{getFileIcon(file.name)}</div>
-            <p>PDF could not be loaded</p>
-            <a 
-              href={publicPath}
-              download={file.name}
-              className="btn-primary mt-4 inline-block"
-            >
-              Download PDF
-            </a>
-          </div>
-        </div>
-      );
-    }
-
-    if (textExtensions.includes(extension)) {
-      return (
-        <div className="w-full">
-          <div className="bg-gray-50 rounded-lg p-4 max-h-96 overflow-auto">
-            <pre className="text-sm whitespace-pre-wrap font-mono text-gray-800">
-              {loadingText ? (
-                <div className="text-center py-8 text-gray-500">
-                  <div className="animate-spin rounded-full h-6 w-6 border-2 border-blue-500 border-t-transparent mx-auto mb-2"></div>
-                  Loading text content...
-                </div>
-              ) : textContent ? (
-                textContent
-              ) : (
-                <div className="text-center py-8">
-                  <div className="text-4xl mb-4">{getFileIcon(file.name)}</div>
-                  <button 
-                    onClick={async () => {
-                      setLoadingText(true);
-                      try {
-                        const response = await fetch(publicPath);
-                        if (!response.ok) throw new Error('Failed to load file');
-                        const text = await response.text();
-                        setTextContent(text);
-                      } catch (error) {
-                        setTextContent('Error loading file content. The file might not be accessible or is too large to display.');
-                      } finally {
-                        setLoadingText(false);
-                      }
-                    }}
-                    className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors"
-                  >
-                    Load Text Content
-                  </button>
-                </div>
-              )}
-            </pre>
-          </div>
-          <div className="mt-4 text-center">
-            <a 
-              href={publicPath}
-              download={file.name}
-              className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg inline-block transition-colors"
-            >
-              Download File
-            </a>
-          </div>
-        </div>
-      );
-    }
-
-    // Default fallback for unsupported file types
-    return (
-      <div className="text-center py-12">
-        <div className="text-8xl mb-6">{getFileIcon(file.name)}</div>
-        <h3 className="text-lg font-medium text-gray-900 mb-2">{file.name}</h3>
-        <p className="text-gray-500 mb-4">Preview not available for this file type</p>
-        <div className="text-sm text-gray-400 mb-6 space-y-1">
-          <p>Type: {getFileExtension(file.name).toUpperCase() || 'Unknown'}</p>
-          {file.size && <p>Size: {formatFileSize(file.size)}</p>}
-        </div>
-        <a 
-          href={publicPath}
-          download={file.name}
-          className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg inline-block transition-colors"
-        >
-          Download File
-        </a>
-      </div>
-    );
-  };
-
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50" onClick={onClose}>
-      <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-        <div className="sticky top-0 bg-white border-b px-6 py-4">
-          <div className="flex justify-between items-center">
-            <div>
-              <h2 className="text-xl font-semibold text-gray-900">{file.name}</h2>
-              <div className="flex items-center gap-4 mt-2 text-sm text-gray-500">
-                <span className="bg-gray-100 px-2 py-1 rounded text-xs uppercase font-medium">
-                  {getFileExtension(file.name) || 'Unknown'}
-                </span>
-                {file.size && <span>{formatFileSize(file.size)}</span>}
-                {(file as any).uploadedAt && (
-                  <span>Uploaded {formatDate((file as any).uploadedAt)}</span>
-                )}
-              </div>
-            </div>
-            <button
-              onClick={onClose}
-              className="text-gray-400 hover:text-gray-600 text-3xl font-light leading-none"
-              title="Close"
-            >
-              ×
-            </button>
-          </div>
-        </div>
-        <div className="p-6">
-          {renderFileContent()}
-        </div>
-      </div>
-    </div>
-  );
 }
 
 export function FolderList({ nodes }: { nodes: Array<FolderNode | FileNode> }) {
@@ -262,6 +41,26 @@ export function FolderList({ nodes }: { nodes: Array<FolderNode | FileNode> }) {
     } else {
       router.push(`/folder/${folder.id}`);
     }
+  };
+
+  const handleDownload = (file: FileNode, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    // Use fileSystemName if available, otherwise fall back to display name
+    const fileName = (file as any).fileSystemName || file.name;
+    const publicPath = `/${fileName}`;
+    
+    // Create a temporary anchor element to trigger download
+    const link = document.createElement('a');
+    link.href = publicPath;
+    link.download = file.name; // Use the display name for download
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    // Update lastAccessed timestamp
+    findFile(file.id);
   };
 
   const handleDelete = async (type: 'file' | 'folder', id: string) => {
@@ -378,17 +177,28 @@ export function FolderList({ nodes }: { nodes: Array<FolderNode | FileNode> }) {
                         )}
                       </div>
                     </div>
-                    <button
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        setDeleteConfirm({ type: 'file', id: file.id, name: file.name });
-                      }}
-                      className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity bg-red-50 hover:bg-red-100 text-red-600 rounded-full p-2 text-sm"
-                      title="Delete file"
-                    >
-                      🗑️
-                    </button>
+                    
+                    {/* Action buttons - only show on hover */}
+                    <div className="absolute top-3 right-3 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button
+                        onClick={(e) => handleDownload(file, e)}
+                        className="bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-full p-2 text-sm transition-colors"
+                        title="Download file"
+                      >
+                        ⬇️
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setDeleteConfirm({ type: 'file', id: file.id, name: file.name });
+                        }}
+                        className="bg-red-50 hover:bg-red-100 text-red-600 rounded-full p-2 text-sm transition-colors"
+                        title="Delete file"
+                      >
+                        🗑️
+                      </button>
+                    </div>
                   </div>
                 );
               })}
@@ -399,7 +209,7 @@ export function FolderList({ nodes }: { nodes: Array<FolderNode | FileNode> }) {
 
       {/* File Viewer Modal */}
       {selectedFile && (
-        <FileViewer 
+        <RecentFileViewer 
           file={selectedFile} 
           onClose={() => setSelectedFile(null)} 
         />
